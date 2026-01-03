@@ -157,7 +157,7 @@ def main() -> int:
         for p in sorted(all_baselines_on_front, key=lambda x: x["flux"]):
             print(f"    {p['label']}: flux={p['flux']:.6f}, density={p['density']:.6f}")
 
-    # Write a minimal v2 claim map snapshot (repo-relative)
+        # Write a minimal v3 claim map snapshot (repo-relative)
     out = {
         "claims": [
             {
@@ -199,7 +199,7 @@ def main() -> int:
         ]
     }
 
-    out_path = audit_dir / "claim_map_v3.json"
+    out_path = audit_dir / "claim_map_v2.json"
     out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
     print("")
     print(f"Wrote {out_path.as_posix()}")
