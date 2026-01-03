@@ -6,12 +6,16 @@
 ![Framework](https://img.shields.io/badge/Framework-PyTorch-orange)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-**Key Finding:** Validated a generative design engine that creates microstructures with **3x hydraulic stiffness** compared to biological xylem and **Pareto-optimal cooling efficiency** compared to standard engineering baselines.
+**Key Finding:** Validated a generative design engine that creates microstructures with **up to ~2.9× stiffness_potential (proxy)** compared to biological xylem and **Pareto-optimal cooling efficiency vs Straight Fins (Fins_*) baselines** (under the current flux/density mapping).
 
-## Evidence / Repro
-- Claim map: `outputs/reports/claim_map.json`
-- Summary: `outputs/reports/CLAIM_MAP.md`
-- Plots: `results/claim_map/`
+---
+
+## ✅ Evidence (Claim Audit)
+- Evidence bundle lives in: `claim_audit/claim_map.json`
+- C1 (proxy repro): `flow_metrics.csv` rows 0–19 where `Type=='real'`, `Porosity` → `density=1-Porosity` → `stiffness_potential=density^2`
+- C1 (best synthetic): `flow_stiffness_candidates.csv` max `stiffness_potential` at row 0 → ratios ~2.76× (vs mean real) / ~2.91× (vs median real)
+- C2 (Pareto): defined baseline set is **Fins_*** only (from `baseline_metrics.csv`), mapping uses `thermal_metrics.Q_total` as flux and `thermal_metrics.rho_solid` as density
+- If you include Grid_/Random_ baselines, synthetics are dominated under the current mapping (so the “Pareto vs baselines” claim must name the baseline set)
 
 ---
 
@@ -39,8 +43,9 @@ We mapped the trade-off between **Flow Rate** (Simulated via Darcy solver) and *
 
 ### 2. Thermal Generalization (The "Cooling Coral")
 We retrained the physics engine to solve the **Steady-State Heat Diffusion Equation** ($\nabla \cdot (k \nabla T) = 0$) to design heat sinks for high-performance electronics.
-* **Benchmark:** We compared AI designs against Straight Fins, Grids, and Random Noise (Foam).
-* **The Win:** While Random Noise achieved high cooling flux, it suffered from massive pressure drop. The AI design occupied the optimal "High Flux / Low Resistance" quadrant.
+* **Benchmark (baseline set for the Pareto claim):** Straight Fins (**Fins_***).
+* **Additional comparators (not used to define the Pareto claim):** Grids and Random Noise (Foam).
+* **The Win:** Under the current flux/density mapping, AI designs are Pareto-optimal vs the Straight-Fin baseline set.
 
 ### 3. Manufacturability & Control
 Unlike generative models that produce "pixel dust," this framework enforces structural connectivity.
@@ -64,10 +69,11 @@ graph TD
     D -->|Gradient Update| A
     B -->|Validation| E[FEM/FDM Solver]
 The Eye (Autoencoder): A Convolutional Autoencoder learns the manifold of valid porous structures from biological datasets.
-
-The Brain (Surrogate): A Differentiable CNN predicts physics properties (R 
+```
+The Brain (Surrogate): A Differentiable CNN predicts physics properties (R
 2
- >0.95) instantly, replacing slow simulations during the design loop.
+
+0.95) instantly, replacing slow simulations during the design loop.
 
 The Hand (Optimizer): Performs gradient descent in the latent space to maximize performance targets (e.g., "Maximize Heat Flux while keeping Density < 0.3").
 
@@ -76,7 +82,8 @@ Prerequisites
 Bash
 
 pip install torch numpy matplotlib scipy pandas
-1. Train the Models
+
+Train the Models
 To train the Autoencoder on the dataset and the Physics Surrogate:
 
 Bash
@@ -97,18 +104,18 @@ Bash
 python src/benchmark_multiphysics.py
 📂 Repository Structure
 ├── src/
-│   ├── model.py                  # Autoencoder Architecture
-│   ├── train_thermal_surrogate.py # Physics Surrogate Training
-│   ├── optimize_latent_thermal.py # Inverse Design Loop
-│   ├── heat_simulation.py        # FDM Heat Solver
-│   ├── flow_simulation.py        # Darcy Flow Solver
-│   ├── analyze_connectivity.py   # Manufacturability Audit
-│   └── benchmark_baselines.py    # Standard Geometry Generator
+│ ├── model.py # Autoencoder Architecture
+│ ├── train_thermal_surrogate.py # Physics Surrogate Training
+│ ├── optimize_latent_thermal.py # Inverse Design Loop
+│ ├── heat_simulation.py # FDM Heat Solver
+│ ├── flow_simulation.py # Darcy Flow Solver
+│ ├── analyze_connectivity.py # Manufacturability Audit
+│ └── benchmark_baselines.py # Standard Geometry Generator
 ├── results/
-│   ├── thermal_design/           # Generated Heat Sinks
-│   ├── baselines/                # Comparison Plots
-│   └── gradient_beam/            # 3D STL Files
-└── data/                         # Training Datasets
+│ ├── thermal_design/ # Generated Heat Sinks
+│ ├── baselines/ # Comparison Plots
+│ └── gradient_beam/ # 3D STL Files
+└── data/ # Training Datasets
 🔮 Future Directions
 This work establishes a "Computational Testbed" for inverse material design. Immediate expansions include:
 
