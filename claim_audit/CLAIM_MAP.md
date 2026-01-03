@@ -6,7 +6,7 @@ This document is a human-readable companion to `claim_audit/claim_map_v3.json` a
 
 ### C1 — ~2.8–2.9× stiffness_potential (proxy)
 
-**Status:** VERIFIED (proxy)
+**Status:** VERIFIED_PROXY
 
 **Proxy definition**
 - `density = 1 - Porosity`
@@ -30,7 +30,7 @@ This document is a human-readable companion to `claim_audit/claim_map_v3.json` a
 
 ### C2 — Pareto-optimal vs Straight Fins (Fins_* only, scoped)
 
-**Status:** VERIFIED (scoped)
+**Status:** VERIFIED_SCOPED
 
 **Metric mapping (as used in the audit)**
 - Synthetic: `flux := claim_audit/thermal_metrics.csv:Q_total`, `density := claim_audit/thermal_metrics.csv:rho_solid`.
