@@ -8,6 +8,11 @@
 
 **Key Finding:** Validated a generative design engine that creates microstructures with **3x hydraulic stiffness** compared to biological xylem and **Pareto-optimal cooling efficiency** compared to standard engineering baselines.
 
+## Evidence / Repro
+- Claim map: `outputs/reports/claim_map.json`
+- Summary: `outputs/reports/CLAIM_MAP.md`
+- Plots: `results/claim_map/`
+
 ---
 
 ## 📄 Abstract
