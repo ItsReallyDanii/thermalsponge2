@@ -1,0 +1,136 @@
+{
+  "generated_at_utc": "2026-01-03T19:47:24.590312Z",
+  "inputs_used": {
+    "flow_metrics_csv": "flow_metrics.csv",
+    "flow_stiffness_candidates_csv": "flow_stiffness_candidates.csv",
+    "thermal_metrics_csv": "thermal_metrics.csv",
+    "baseline_metrics_csv": "baseline_metrics.csv"
+  },
+  "claims": [
+    {
+      "id": "C1",
+      "label": "3\u00d7 stiffness (proxy)",
+      "original_public_claim": "3\u00d7 hydraulic stiffness compared to biological xylem",
+      "status": "PARTIALLY_SUPPORTED",
+      "what_is_supported": "\u22482.76\u00d7 to 2.91\u00d7 improvement in stiffness proxy E \u221d \u03c1^2 (stiffness_potential), not a validated hydraulic stiffness measurement.",
+      "definition": {
+        "proxy_name": "stiffness_potential",
+        "proxy_formula": "stiffness_potential = density^2, density = 1 - Porosity",
+        "notes": "Matches README heuristic 'E \u221d \u03c1^2'."
+      },
+      "evidence": [
+        {
+          "file": "flow_metrics.csv",
+          "rows": {
+            "where": "Type == 'real' (biological)",
+            "row_indices": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ]
+          },
+          "columns": [
+            "Type",
+            "FlowRate",
+            "Porosity",
+            "Mean_dP/dy"
+          ],
+          "derived_columns": [
+            "density = 1-Porosity",
+            "stiffness_potential_proxy = density^2"
+          ],
+          "summary_stats": {
+            "real_mean_stiffness_potential_proxy": 0.3291847807820886,
+            "real_median_stiffness_potential_proxy": 0.31166180002037436
+          }
+        },
+        {
+          "file": "flow_stiffness_candidates.csv",
+          "rows": {
+            "description": "top candidate by stiffness_potential after sort",
+            "row_index_after_sort": 0
+          },
+          "columns": [
+            "FlowRate",
+            "Porosity",
+            "density",
+            "stiffness_potential",
+            "score_flow_x_stiffness"
+          ],
+          "top_candidate_values": {
+            "FlowRate": 0.0008396113989874,
+            "Porosity": 0.04718017578125,
+            "density": 0.95281982421875,
+            "stiffness_potential": 0.9078656174242496
+          }
+        }
+      ],
+      "computed_claim_check": {
+        "ratio_best_candidate_to_real_mean": 2.7579209927849977,
+        "ratio_best_candidate_to_real_median": 2.9129832958832282,
+        "headline": "Best synthetic stiffness_potential \u2248 2.76\u00d7 (vs mean real) / 2.91\u00d7 (vs median real)."
+      },
+      "plot_paths": [
+        "results/claim_map/flow_vs_stiffness_claimmap.png"
+      ]
+    },
+    {
+      "id": "C2",
+      "label": "Pareto-optimal cooling efficiency",
+      "original_public_claim": "Pareto-optimal cooling efficiency compared to standard engineering baselines",
+      "status": "UNSUPPORTED_WITH_CURRENT_CSVA",
+      "metric_mapping_used": {
+        "flux": "thermal_metrics.csv: Q_total ; baseline_metrics.csv: flux",
+        "density": "thermal_metrics.csv: rho_solid ; baseline_metrics.csv: density",
+        "pareto_definition": "maximize flux, minimize density"
+      },
+      "evidence": [
+        {
+          "file": "thermal_metrics.csv",
+          "columns": [
+            "filename",
+            "Q_total",
+            "rho_solid"
+          ],
+          "row_indices": "all rows (synthetic_*.png)"
+        },
+        {
+          "file": "baseline_metrics.csv",
+          "columns": [
+            "name",
+            "flux",
+            "density"
+          ],
+          "row_indices": "all rows (engineering baselines)"
+        }
+      ],
+      "computed_claim_check": {
+        "pareto_front_counts_in_combined_set": {
+          "baseline": 7
+        },
+        "headline": "With this mapping, Pareto front contains baselines only; synthetic points are dominated."
+      },
+      "plot_paths": [
+        "results/claim_map/thermal_flux_density_claimmap.png"
+      ],
+      "notes": "If 'Flux' in the README corresponds to a different column than Q_total, or if the Pareto claim is about a different tradeoff (e.g., flux vs pressure drop), provide the correct CSV(s) and rerun."
+    }
+  ]
+}
