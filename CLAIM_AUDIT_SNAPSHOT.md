@@ -10,7 +10,7 @@ From repo root:
 python src/repro_claims.py
 ```
 
-This reproduces the C1/C2 numeric checks directly from `claim_audit/*.csv` and regenerates the audit artifact (`claim_audit/claim_map_v3.json`) and plots (`results/claim_audit_plots/`).
+This reproduces the C1/C2 numeric checks directly from `claim_audit/*.csv` and regenerates the audit artifact (`claim_audit/claim_map_v3.json`).
 
 ## Claims
 
