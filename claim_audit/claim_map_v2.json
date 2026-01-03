@@ -1,0 +1,198 @@
+{
+  "generated_at_utc": "2026-01-03T20:48:57Z",
+  "inputs_used": {
+    "flow_metrics_csv": "flow_metrics.csv",
+    "flow_stiffness_candidates_csv": "flow_stiffness_candidates.csv",
+    "thermal_metrics_csv": "thermal_metrics.csv",
+    "baseline_metrics_csv": "baseline_metrics.csv"
+  },
+  "claims": [
+    {
+      "id": "C1",
+      "label": "~2.8\u20132.9\u00d7 stiffness_potential (proxy)",
+      "original_public_claim": "\u22482.8\u20132.9\u00d7 stiffness_potential proxy (density\u00b2 from Porosity) compared to biological xylem",
+      "status": "VERIFIED",
+      "what_is_supported": "Best synthetic stiffness_potential (density\u00b2 from Porosity) is 2.7579\u00d7 the biological mean and 2.9130\u00d7 the biological median under stiffness_potential=(1-Porosity)^2.",
+      "definition": {
+        "proxy_name": "stiffness_potential",
+        "proxy_formula": "stiffness_potential = density^2, density = 1 - Porosity",
+        "notes": "This is a proxy computed from Porosity; no measured 'hydraulic stiffness' is provided in this repo."
+      },
+      "evidence": [
+        {
+          "file": "flow_metrics.csv",
+          "rows": {
+            "where": "Type == 'real' (biological)",
+            "row_indices": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ]
+          },
+          "columns": [
+            "Type",
+            "Porosity"
+          ],
+          "derived_columns": [
+            "density = 1 - Porosity",
+            "stiffness_potential = density^2"
+          ],
+          "summary_stats": {
+            "real_mean_stiffness_potential": 0.3291847807820886,
+            "real_median_stiffness_potential": 0.31166180002037436
+          }
+        },
+        {
+          "file": "flow_stiffness_candidates.csv",
+          "rows": {
+            "where": "Type == 'synthetic'",
+            "selection": "row with max(stiffness_potential)",
+            "row_index": 0
+          },
+          "columns": [
+            "Type",
+            "Porosity",
+            "density",
+            "stiffness_potential"
+          ],
+          "top_candidate_values": {
+            "Porosity": 0.04718017578125,
+            "density": 0.95281982421875,
+            "stiffness_potential": 0.9078656174242496
+          }
+        }
+      ],
+      "computed_claim_check": {
+        "ratio_best_candidate_to_real_mean": 2.7579209927849977,
+        "ratio_best_candidate_to_real_median": 2.9129832958832282,
+        "headline": "Best synthetic stiffness_potential \u2248 2.76\u00d7 (vs mean real) / 2.91\u00d7 (vs median real)."
+      },
+      "plot_paths": [
+        "flow_vs_stiffness_claimmap.png"
+      ]
+    },
+    {
+      "id": "C2",
+      "label": "Pareto-optimal cooling efficiency vs Straight Fins",
+      "original_public_claim": "Pareto-optimal (maximize flux, minimize density) compared to Straight Fins baselines (Fins_*)",
+      "status": "VERIFIED",
+      "metric_mapping_used": {
+        "flux": "thermal_metrics.csv: Q_total ; baseline_metrics.csv: flux",
+        "density": "thermal_metrics.csv: rho_solid ; baseline_metrics.csv: density",
+        "pareto_definition": "maximize flux, minimize density",
+        "baseline_set": "Fins_*",
+        "baseline_filter": "baseline_metrics.csv rows where name startswith 'Fins_'"
+      },
+      "evidence": [
+        {
+          "file": "thermal_metrics.csv",
+          "columns": [
+            "filename",
+            "Q_total",
+            "rho_solid"
+          ],
+          "row_indices": "all rows (synthetic_*.png)"
+        },
+        {
+          "file": "baseline_metrics.csv",
+          "rows": {
+            "where": "name startswith 'Fins_'",
+            "row_indices": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          "columns": [
+            "name",
+            "flux",
+            "density"
+          ]
+        }
+      ],
+      "computed_claim_check": {
+        "pareto_front_counts_in_combined_set": {
+          "synthetic": 21,
+          "baseline": 2
+        },
+        "pareto_front_baseline_points_in_scope": [
+          {
+            "name": "Fins_5",
+            "Q_total": 0.0543938033777702,
+            "rho_solid": 0.078125
+          },
+          {
+            "name": "Fins_10",
+            "Q_total": 0.0573652370699687,
+            "rho_solid": 0.15625
+          }
+        ],
+        "pareto_front_counts_if_all_baselines_included": {
+          "synthetic": 0,
+          "baseline": 7
+        },
+        "pareto_front_baseline_points_if_all_included": [
+          {
+            "name": "Grid_4",
+            "Q_total": 0.0804363777058121,
+            "rho_solid": 0.0615234375
+          },
+          {
+            "name": "Grid_8",
+            "Q_total": 0.1120659633293653,
+            "rho_solid": 0.12109375
+          },
+          {
+            "name": "Grid_16",
+            "Q_total": 0.176287674921126,
+            "rho_solid": 0.234375
+          },
+          {
+            "name": "Grid_32",
+            "Q_total": 0.3080939730560346,
+            "rho_solid": 0.4375
+          },
+          {
+            "name": "Random_0.2",
+            "Q_total": 0.1713040462493669,
+            "rho_solid": 0.200469970703125
+          },
+          {
+            "name": "Random_0.4",
+            "Q_total": 0.2694518720169658,
+            "rho_solid": 0.4033660888671875
+          },
+          {
+            "name": "Random_0.6",
+            "Q_total": 0.4676804694560611,
+            "rho_solid": 0.60137939453125
+          }
+        ],
+        "headline": "Pareto front includes synthetic points vs Fins_* baseline set; adding Grid_/Random_ baselines removes synthetics from the front under the same mapping."
+      },
+      "plot_paths": [
+        "thermal_flux_density_claimmap.png"
+      ],
+      "notes": "Baseline scope is part of the claim definition in this repo version. If baseline_metrics.csv rows 5\u201311 (Grid_*/Random_*) are included, synthetic Pareto count becomes 0 under the same mapping."
+    }
+  ]
+}
