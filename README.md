@@ -44,11 +44,13 @@ python generate_structures.py
 Expected output (typical):
 - Images written under `data/generated_microtubes/`.
 
-### 3.3 Run metrics / physics evaluation (flow + thermal)
+### 3.3 Run metrics / physics evaluation (flow; thermal optional)
 
-This artifact’s **main result** is a **real-vs-synthetic comparison of flow + thermal metrics**, including summary statistics and distribution tests exported to:
+This artifact’s **main result** is a **real-vs-synthetic comparison of flow metrics** (primary), with summary statistics and distribution tests exported to:
 - `results/flow_metrics/flow_metrics.csv`
 - `results/physics_validation_report.csv`
+
+The repository also includes a **thermal pipeline** (simulation + optional surrogate), but **thermal is not part of the main reproduction path** unless you add a thermal metrics export + real-vs-synthetic comparison step.
 
 **Flow (end-to-end):**
 
@@ -61,7 +63,7 @@ python flow_metrics_export.py
 python analyze_flow_metrics.py
 ```
 
-**Thermal (if you are using the thermal pipeline):**
+**Thermal (optional extension):**
 
 ```bash
 # Export thermal metrics (if applicable in your workflow)
@@ -71,7 +73,7 @@ python heat_simulation.py
 python train_thermal_surrogate.py
 ```
 
-> Note: as currently written, `analyze_flow_metrics.py` performs **Welch’s t-test** (unequal variance) and a **Kolmogorov–Smirnov (KS) test** per metric. If you want **Mann–Whitney U** instead, we can add it and export its p-values alongside the others.
+> Note: `analyze_flow_metrics.py` performs **Welch’s t-test** (unequal variance) and a **Kolmogorov–Smirnov (KS) test** per metric. (A Mann–Whitney U alternative can be added if needed.)
 
 ## 4) Reproducing the main result (artifact instructions)
 
@@ -89,7 +91,7 @@ python train_thermal_surrogate.py
 python generate_structures.py
 ```
 
-2) Export flow metrics (must include both real and synthetic rows in the `type` column):
+2) Export flow metrics (CSV must include both real and synthetic rows in the `type` column, with values `real` and `synthetic`):
 
 ```bash
 python flow_metrics_export.py
@@ -179,21 +181,20 @@ Add a license (MIT/Apache-2.0/BSD-3-Clause are common for code). If you tell me 
 ---
 
 ## Artifact scope (filled)
+## Artifact scope (filled)
 
 ### Main result
 
-A **real-vs-synthetic comparison of flow + thermal metrics**, exported to:
+A **real-vs-synthetic comparison of flow metrics** (primary), exported to:
 - `results/flow_metrics/flow_metrics.csv`
 - `results/physics_validation_report.csv`
 
-Reviewers should be able to reproduce the **summary statistics** and the **distribution tests** per metric.
+`results/physics_validation_report.csv` contains per-metric means and p-values from **Welch’s t-test** (unequal variance) and the **Kolmogorov–Smirnov (KS) test**.
 
-> Plotting: `analyze_flow_metrics.py` currently exports the CSV report and prints a console summary. If you want plots as part of the artifact (histograms/ECDFs/boxplots), we can add a small `plot_flow_metrics.py` script that reads `results/flow_metrics/flow_metrics.csv` and writes figures under `results/plots/`.
+**Thermal:** the repo includes thermal simulation + optional surrogate scripts, but **thermal is not part of the main reproduction path** unless you add a thermal metrics export + comparison step.
+
+> Plotting: `analyze_flow_metrics.py` exports the CSV report and prints a console summary. If you want plots as part of the artifact (histograms/ECDFs/boxplots), add a small `plot_flow_metrics.py` script that reads `results/flow_metrics/flow_metrics.csv` and writes figures under `results/plots/`.
 
 ### Data availability
 
-- **Real xylem images are not included** in this repository.
-- The artifact ships **synthetic generators**; real-data comparisons require downloading the referenced dataset and placing it under:
-  - `data/real_xylem/`
-
-Add (or replace) the text in §5.2 with the exact citation, license/permissions, and any preprocessing steps required for the real dataset.
+**Real xylem images are not included** in this repository. Real-data comparisons require downloading the referenced dataset and placing it under `data/real_xylem/` (see §5.2).
