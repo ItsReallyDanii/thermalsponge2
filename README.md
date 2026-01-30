@@ -1,89 +1,178 @@
-# Inverse Design of Functionally Graded Porous Media
-### *A Physics-Informed Generative Approach to Biological & Thermal Transport*
+# Xylem Microstructure Generation + Physics Validation (Artifact)
 
-![Status](https://img.shields.io/badge/Status-Research_Artifact-blue)
-![Domain](https://img.shields.io/badge/Domain-SciML-green)
-![Framework](https://img.shields.io/badge/Framework-PyTorch-orange)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
+This repository contains a small end-to-end research prototype for generating xylem-like microstructures (2D images) and evaluating them with simple morphology/connectivity metrics and physics-inspired surrogate/solver pipelines.
 
-## What this repo is (end goal)
+> **Project status:** exploratory / first-pass prototype (built in ~2 days). The goal of this README is to make the repo usable as a reproducible *artifact*.
 
-A **reproducible research artifact**: generate porous microstructures, evaluate them with simple physics benchmarks, and ship an **evidence-linked claim audit** so anyone can re-run the numbers.
+## 1) What this artifact provides
 
-## Key findings (scoped + reproducible)
+- **Structure generation**: scripts that create synthetic microstructure images (e.g., under `data/generated_microtubes/`).
+- **Analysis**: morphology / connectivity / latent-space visualization scripts.
+- **Physics evaluation**: flow and thermal metric extraction + statistical comparisons.
+- **Optimization**: scripts to optimize latent variables / structures under tradeoffs.
 
-- **C1 (VERIFIED proxy):** Best synthetic design achieves **2.91×** higher **stiffness_potential (proxy)** vs biological median (**2.76×** vs mean), where  
-  `stiffness_potential = (1 − Porosity)^2`.
-- **C2 (VERIFIED but scoped):** Designs are Pareto-optimal **vs Straight Fins only** (`Fins_*`) under the current mapping  
-  (synthetic `flux := thermal_metrics.Q_total`, `density := thermal_metrics.rho_solid`).
+## 2) Repository layout (high-level)
 
-> Scope note (C2): If Grid/Random baselines are included, synthetics are dominated under the current mapping. So the Pareto claim must **name the baseline set**.
+Top-level scripts (examples):
+- `generate_structures.py`, `synthetic_cambium.py`: generate synthetic samples.
+- `train.py`, `train_surrogate.py`, `train_thermal_surrogate.py`: train autoencoder / surrogates.
+- `simulate_flow.py`, `flow_simulation.py`, `heat_simulation.py`: run simulations / compute metrics.
+- `analyze_*`: post-hoc analysis (connectivity, morphology, latent space, tradeoffs).
 
----
+Common outputs:
+- `data/…` for input images
+- `results/…` for CSV reports, trained weights, figures
 
-## ✅ Evidence (Claim Audit)
+## 3) Quick start (recommended “happy path”)
 
-Primary artifact:
-- `claim_audit/claim_map_v3.json`  (authoritative claim audit)
+### 3.1 Create environment
 
-Repro script:
-- `src/repro_claims.py`
-
-### Pasteable README evidence block
-
-```md
-**VERIFIED C1 (proxy)**: `claim_audit/flow_metrics.csv` filter `Type=='real'` (rows 0–19), cols [`Type`,`Porosity`]; define `stiffness_potential=(1-Porosity)^2` → mean=0.3291847807820886, median=0.31166180002037436.
-**VERIFIED C1 (best synthetic)**: `claim_audit/flow_stiffness_candidates.csv` rows 0–9; `argmax(stiffness_potential)` at row 0 → best=0.9078656174242496.
-**VERIFIED C1 ratios**: best/mean=2.7579209927849977× and best/median=2.9129832958832282× (from the two CSVs/filters above).
-**UNVERIFIED (literal stiffness)**: no measured “hydraulic stiffness” field exists in the provided CSV columns; only the Porosity-derived proxy is supported.
-**VERIFIED C2 scope**: baselines are **Straight Fins only**: `claim_audit/baseline_metrics.csv` rows 0–4 where `name.startswith('Fins_')`.
-**VERIFIED C2 mapping+Pareto**: synthetic uses `thermal_metrics.csv` (`Q_total`→flux, `rho_solid`→density); Pareto=max flux, min density → front counts vs Fins_*: 21 synthetic + 2 baseline.
-**DIAGNOSTIC**: if all baselines included (`baseline_metrics.csv` rows 0–11) → front counts: 0 synthetic + 7 baseline.
-```
-
----
-
-## Reproduce the claim audit (one command)
-
-From repo root:
+This repo uses a `requirements.txt`.
 
 ```bash
-python src/repro_claims.py
-```
-
-Expected: it prints the C1/C2 summary and regenerates the audit outputs referenced above.
-
----
-
-## Install
-
-If you have a `requirements.txt`, prefer:
-
-```bash
+python -m venv .venv
+source .venv/bin/activate  # (Windows PowerShell: .venv\\Scripts\\Activate.ps1)
 pip install -r requirements.txt
 ```
 
-Otherwise, minimum for repro:
+### 3.2 Generate synthetic structures
 
 ```bash
-pip install pandas numpy matplotlib torch torchvision pillow
+python generate_structures.py
 ```
+
+Expected output (typical):
+- Images written under `data/generated_microtubes/`.
+
+### 3.3 Run metrics / physics evaluation (flow + thermal)
+
+This artifact’s **main result** is a **real-vs-synthetic comparison of flow + thermal metrics**, including summary statistics and distribution tests exported to:
+- `results/flow_metrics/flow_metrics.csv`
+- `results/physics_validation_report.csv`
+
+**Flow (end-to-end):**
+
+```bash
+# 1) Export / compute flow metrics into results/flow_metrics/flow_metrics.csv
+python flow_metrics_export.py
+
+# 2) Run real-vs-synthetic statistical comparison
+#    Current implementation: Welch’s t-test + KS test per metric
+python analyze_flow_metrics.py
+```
+
+**Thermal (if you are using the thermal pipeline):**
+
+```bash
+# Export thermal metrics (if applicable in your workflow)
+python heat_simulation.py
+
+# Train a thermal surrogate (optional)
+python train_thermal_surrogate.py
+```
+
+> Note: as currently written, `analyze_flow_metrics.py` performs **Welch’s t-test** (unequal variance) and a **Kolmogorov–Smirnov (KS) test** per metric. If you want **Mann–Whitney U** instead, we can add it and export its p-values alongside the others.
+
+## 4) Reproducing the main result (artifact instructions)
+
+### 4.1 Prerequisites
+
+- Python environment created (see §3.1).
+- **Synthetic** images can be generated with `python generate_structures.py`.
+- **Real xylem** images must be placed under `data/real_xylem/` (see §5.2).
+
+### 4.2 Reproduction steps
+
+1) (Optional) Generate synthetic structures:
+
+```bash
+python generate_structures.py
+```
+
+2) Export flow metrics (must include both real and synthetic rows in the `type` column):
+
+```bash
+python flow_metrics_export.py
+```
+
+3) Run the real-vs-synthetic comparison report:
+
+```bash
+python analyze_flow_metrics.py
+```
+
+### 4.3 Outputs to check
+
+After a successful run, reviewers should see:
+- `results/flow_metrics/flow_metrics.csv` (inputs to the comparison)
+- `results/physics_validation_report.csv` (per-metric means + p-values)
+
+If these files are missing, the most common cause is missing data under `data/real_xylem/` (real) or `data/generated_microtubes/` (synthetic).
+
+### 4.4 Hardware / runtime notes
+
+- CPU-only should work for the CSV/statistics steps.
+- Training (autoencoders/surrogates) will be significantly faster on a CUDA-capable GPU, but is not required to reproduce the main CSV report.
+
+## 5) Data
+
+### 5.1 Synthetic data
+
+Generated by scripts in this repo (see Quick start).
+
+### 5.2 Real data (required for real-vs-synthetic comparisons)
+
+**Real xylem images are not included** in this repository.
+
+To run real-vs-synthetic comparisons, download the dataset from the cited source and place it at:
+- `data/real_xylem/`
+
+When making this an academic artifact, you should document **exactly**:
+- where the dataset came from (full citation),
+- the license/permissions,
+- any required preprocessing (file format, resolution, grayscale conversion, naming conventions),
+- the expected folder structure under `data/real_xylem/`.
+
+## 6) Notes / limitations
+
+- Many scripts are research prototypes and may assume specific folder names under `data/` and `results/`.
+- Some scripts may auto-install dependencies at runtime (e.g., `analyze_latent.py`); for artifact review, it’s better to rely on `requirements.txt` and disable auto-installs.
+
+## 7) How to cite
+
+If you’re using this as an artifact for a report/paper, add a citation block here (BibTeX preferred).
+
+```bibtex
+@misc{yourproject2026,
+  title  = {Xylem Microstructure Generation + Physics Validation},
+  author = {YOUR NAME},
+  year   = {2026},
+  note   = {Artifact / research prototype}
+}
+```
+
+## 8) License
+
+Add a license (MIT/Apache-2.0/BSD-3-Clause are common for code). If you tell me which one you want, I can add a `LICENSE` file.
 
 ---
 
-## Repository structure (high level)
+## Artifact scope (filled)
 
-```
-src/                 # code (models, solvers, training, analysis)
-claim_audit/          # evidence bundle (CSV + claim maps)
-results/              # plots / exports
-data/                 # datasets (optional)
-```
+### Main result
 
-## License
+A **real-vs-synthetic comparison of flow + thermal metrics**, exported to:
+- `results/flow_metrics/flow_metrics.csv`
+- `results/physics_validation_report.csv`
 
-MIT (see `LICENSE`).
+Reviewers should be able to reproduce the **summary statistics** and the **distribution tests** per metric.
 
-## Citation
+> Plotting: `analyze_flow_metrics.py` currently exports the CSV report and prints a console summary. If you want plots as part of the artifact (histograms/ECDFs/boxplots), we can add a small `plot_flow_metrics.py` script that reads `results/flow_metrics/flow_metrics.csv` and writes figures under `results/plots/`.
 
-Daniel Sleiman. (2025). *Inverse Design of Functionally Graded Porous Media via Physics-Informed Generative Models*. GitHub repository.
+### Data availability
+
+- **Real xylem images are not included** in this repository.
+- The artifact ships **synthetic generators**; real-data comparisons require downloading the referenced dataset and placing it under:
+  - `data/real_xylem/`
+
+Add (or replace) the text in §5.2 with the exact citation, license/permissions, and any preprocessing steps required for the real dataset.
