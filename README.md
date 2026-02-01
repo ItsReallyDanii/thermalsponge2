@@ -1,15 +1,22 @@
-# Xylem Microstructure Generation + Physics Validation (Artifact)
+# Generative Porous Microstructure Design + Physics Validation (Artifact)
 
-This repository contains a small end-to-end research prototype for generating xylem-like microstructures (2D images) and evaluating them with simple morphology/connectivity metrics and physics-inspired surrogate/solver pipelines.
+This repository contains an end-to-end research prototype for generating porous microstructure images and evaluating them against engineering baselines using morphology, flow, and thermal metrics.
 
-> **Project status:** exploratory / first-pass prototype (built in ~2 days). The goal of this README is to make the repo usable as a reproducible *artifact*.
+> **Project status:** exploratory / first-pass prototype. The goal of this README is to make the repo usable as a reproducible *artifact*.
+
+> **Bio-inspiration note:** The generative approach was originally inspired by xylem tissue in trees — biological structures that sustain extreme hydraulic pressures through evolved porous geometries. The project uses this as *design inspiration*, not as a biological validation target. All quantitative comparisons are against engineering baselines (straight fins, grids, random porous media).
+
+---
 
 ## 1) What this artifact provides
 
-- **Structure generation**: scripts that create synthetic microstructure images (e.g., under `data/generated_microtubes/`).
+- **Structure generation**: scripts that create synthetic porous microstructure images (e.g., under `data/generated_microtubes/`).
 - **Analysis**: morphology / connectivity / latent-space visualization scripts.
-- **Physics evaluation**: flow and thermal metric extraction + statistical comparisons.
-- **Optimization**: scripts to optimize latent variables / structures under tradeoffs.
+- **Physics evaluation**: flow and thermal metric extraction + statistical comparisons against engineering baselines.
+- **Optimization**: scripts to optimize latent variables / structures under thermal-mechanical tradeoffs.
+- **Claim audit system**: a versioned, self-auditing claim registry (`claim_audit/`) that enforces proxy-qualification and baseline scoping on all public claims.
+
+---
 
 ## 2) Repository layout (high-level)
 
@@ -18,20 +25,22 @@ Top-level scripts (examples):
 - `train.py`, `train_surrogate.py`, `train_thermal_surrogate.py`: train autoencoder / surrogates.
 - `simulate_flow.py`, `flow_simulation.py`, `heat_simulation.py`: run simulations / compute metrics.
 - `analyze_*`: post-hoc analysis (connectivity, morphology, latent space, tradeoffs).
+- `src/repro_claims.py`: one-command claim reproduction.
 
 Common outputs:
 - `data/…` for input images
 - `results/…` for CSV reports, trained weights, figures
+- `claim_audit/…` for versioned claim evidence (CSVs, JSON maps)
 
-## 3) Quick start (recommended “happy path”)
+---
+
+## 3) Quick start (recommended "happy path")
 
 ### 3.1 Create environment
 
-This repo uses a `requirements.txt`.
-
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # (Windows PowerShell: .venv\\Scripts\\Activate.ps1)
+source .venv/bin/activate  # (Windows PowerShell: .venv\Scripts\Activate.ps1)
 pip install -r requirements.txt
 ```
 
@@ -41,160 +50,183 @@ pip install -r requirements.txt
 python generate_structures.py
 ```
 
-Expected output (typical):
-- Images written under `data/generated_microtubes/`.
+Expected output: images written under `data/generated_microtubes/`.
 
-### 3.3 Run metrics / physics evaluation (flow; thermal optional)
+### 3.3 Run metrics / physics evaluation
 
-This artifact’s **main result** is a **real-vs-synthetic comparison of flow metrics** (primary), with summary statistics and distribution tests exported to:
-- `results/flow_metrics/flow_metrics.csv`
-- `results/physics_validation_report.csv`
+This artifact's **main results** are:
 
-The repository also includes a **thermal pipeline** (simulation + optional surrogate), but **thermal is not part of the main reproduction path** unless you add a thermal metrics export + real-vs-synthetic comparison step.
+1. **Flow metrics comparison** (synthetic structures vs engineering baselines), exported to `results/physics_validation_report.csv`.
+2. **Thermal Pareto analysis** (synthetic structures vs straight-fin baselines), reproduced via `src/repro_claims.py`.
 
 **Flow (end-to-end):**
 
 ```bash
-# 1) Export / compute flow metrics into results/flow_metrics/flow_metrics.csv
+# 1) Export / compute flow metrics
 python flow_metrics_export.py
 
-# 2) Run real-vs-synthetic statistical comparison
-#    Current implementation: Welch’s t-test + KS test per metric
+# 2) Run statistical comparison (Welch's t-test + KS test per metric)
 python analyze_flow_metrics.py
 ```
 
 **Thermal (optional extension):**
 
 ```bash
-# Export thermal metrics (if applicable in your workflow)
 python heat_simulation.py
-
-# Train a thermal surrogate (optional)
-python train_thermal_surrogate.py
+python train_thermal_surrogate.py  # optional surrogate
 ```
 
-> Note: `analyze_flow_metrics.py` performs **Welch’s t-test** (unequal variance) and a **Kolmogorov–Smirnov (KS) test** per metric. (A Mann–Whitney U alternative can be added if needed.)
+**Claim reproduction (one command):**
+
+```bash
+python src/repro_claims.py
+```
+
+This reproduces the C1/C2 numeric checks from `claim_audit/*.csv` and regenerates `claim_audit/claim_map_v3.json`.
+
+---
 
 ## 4) Reproducing the main result (artifact instructions)
 
 ### 4.1 Prerequisites
 
 - Python environment created (see §3.1).
-- **Synthetic** images can be generated with `python generate_structures.py`.
-- **Real xylem** images must be placed under `data/real_xylem/` (see §5.2).
+- Synthetic images generated with `python generate_structures.py`.
 
 ### 4.2 Reproduction steps
 
-1) (Optional) Generate synthetic structures:
+1. Generate synthetic structures:
 
 ```bash
 python generate_structures.py
 ```
 
-2) Export flow metrics (CSV must include both real and synthetic rows in the `type` column, with values `real` and `synthetic`):
+2. Export flow metrics:
 
 ```bash
 python flow_metrics_export.py
 ```
 
-3) Run the real-vs-synthetic comparison report:
+3. Run the statistical comparison report:
 
 ```bash
 python analyze_flow_metrics.py
 ```
 
+4. Reproduce audited claims:
+
+```bash
+python src/repro_claims.py
+```
+
 ### 4.3 Outputs to check
 
 After a successful run, reviewers should see:
-- `results/flow_metrics/flow_metrics.csv` (inputs to the comparison)
-- `results/physics_validation_report.csv` (per-metric means + p-values)
-
-If these files are missing, the most common cause is missing data under `data/real_xylem/` (real) or `data/generated_microtubes/` (synthetic).
+- `results/flow_metrics/flow_metrics.csv` — raw metric values per sample
+- `results/physics_validation_report.csv` — per-metric means + p-values (Welch's t-test, KS test)
+- `claim_audit/claim_map_v3.json` — versioned claim evidence (regenerated)
 
 ### 4.4 Hardware / runtime notes
 
-- CPU-only should work for the CSV/statistics steps.
-- Training (autoencoders/surrogates) will be significantly faster on a CUDA-capable GPU, but is not required to reproduce the main CSV report.
+- CPU-only is sufficient for the CSV/statistics steps.
+- Training (autoencoders/surrogates) will be significantly faster on a CUDA-capable GPU, but is not required to reproduce the main reports.
+
+---
 
 ## 5) Data
 
 ### 5.1 Synthetic data
 
-Generated by scripts in this repo (see Quick start).
+Generated by scripts in this repo (see Quick start). The generative model produces 2D porous microstructure images parameterized by density and cooling rate, visualized in the design manifold figure (`results/design_manifold.png`).
 
-### 5.2 Real data (external; not included)
+### 5.2 Engineering baselines (included)
 
-**Real xylem images are not included** in this repository.
+Baseline structures are defined in `claim_audit/baseline_metrics.csv` and include:
 
-To reproduce the **real-vs-synthetic** comparisons, you must download the real dataset cited below and place it on disk exactly as described so the scripts can locate it.
+| Baseline family | Description | Count |
+|---|---|---|
+| `Fins_*` | Straight fin arrays (varying fin count) | 5 |
+| `Grid_*` | Regular grid patterns (varying cell size) | 4 |
+| `Random_*` | Random porous media (varying porosity) | 3 |
 
-**Dataset citation (REQUIRED)**
-- Source: <DATASET / PAPER NAME>, <DOI or official dataset page>
-- License / permissions: <LICENSE NAME + any use restrictions>
-- Attribution requirement: <YES/NO + details if required>
+These baselines are generated programmatically and included in the repository.
 
-**Preprocessing (REQUIRED)**
-- Format: <png/jpg/tif>, <grayscale/RGB>
-- Resolution: <e.g., 256×256> (resize if needed)
-- Intensity normalization: <none / [0,1] / z-score / etc.>
-- Notes: <any masking/thresholding/cropping assumptions>
+### 5.3 Biological reference data (context only)
 
-**On-disk layout (REQUIRED)**
-Place files under:
-- `data/real_xylem/`
+The generative approach was inspired by xylem microstructure in trees. For readers interested in real wood anatomy datasets, the following public resource exists:
 
-Expected structure (example):
-- `data/real_xylem/<class_or_source_name>/*.png`
-  - Example: `data/real_xylem/species_A/*.png`
-  - Example: `data/real_xylem/species_B/*.png`
+> Marichal, H., Passarella, D., Lucas, C., Casaravilla, V., Rocha Galli, M. N., Serrana, A., Profumo, L., & Randall, G. (2023). *UruDendro, a public dataset of 64 cross-section images and manual annual ring delineations of Pinus taeda L.* Zenodo. [https://doi.org/10.5281/zenodo.15110647](https://doi.org/10.5281/zenodo.15110647). License: CC-BY-4.0.
 
-If your dataset does not have classes, use a single folder:
-- `data/real_xylem/all/*.png`
-
-**Sanity check**
-After placement, confirm the directory contains non-empty image files and that your analysis scripts detect both:
-- real images under `data/real_xylem/`
-- synthetic images under `data/generated_microtubes/` (or your configured synthetic output path)
-
-## 6) Notes / limitations
-
-- Many scripts are research prototypes and may assume specific folder names under `data/` and `results/`.
-- Some scripts may auto-install dependencies at runtime (e.g., `analyze_latent.py`); for artifact review, it’s better to rely on `requirements.txt` and disable auto-installs.
-
-## 7) How to cite
-
-If you’re using this as an artifact for a report/paper, add a citation block here (BibTeX preferred).
-
-```bibtex
-@misc{yourproject2026,
-  title  = {Xylem Microstructure Generation + Physics Validation},
-  author = {YOUR NAME},
-  year   = {2026},
-  note   = {Artifact / research prototype}
-}
-```
-
-## 8) License
-
-Add a license (MIT/Apache-2.0/BSD-3-Clause are common for code). If you tell me which one you want, I can add a `LICENSE` file.
+**Important:** UruDendro contains macro-scale tree disc cross-sections (ring-level), not cellular-scale xylem micrographs. It is cited here for context and inspiration, **not** as a validation target for this artifact's microstructure-level metrics. A proper biological validation would require cellular-scale xylem imaging data (e.g., SEM micrographs of wood cell structure).
 
 ---
 
-## Artifact scope (filled)
-## Artifact scope (filled)
+## 6) Verified claims
 
-### Main result
+This repository includes a self-contained claim audit system under `claim_audit/`. See `CLAIMS.md` and `CLAIM_AUDIT_SNAPSHOT.md` for full details.
 
-A **real-vs-synthetic comparison of flow metrics** (primary), exported to:
-- `results/flow_metrics/flow_metrics.csv`
-- `results/physics_validation_report.csv`
+### C1 — ~2.8–2.9× stiffness_potential (proxy)
 
-`results/physics_validation_report.csv` contains per-metric means and p-values from **Welch’s t-test** (unequal variance) and the **Kolmogorov–Smirnov (KS) test**.
+- **Status:** VERIFIED_PROXY
+- **Definition:** `stiffness_potential = (1 - Porosity)²` (a density-derived proxy, not measured hydraulic stiffness)
+- **Result:** Best synthetic stiffness_potential is 0.908, which is 2.76× the baseline mean and 2.91× the baseline median.
+- **Caveat:** This is a porosity-derived proxy. No column in the provided CSVs represents literal measured mechanical stiffness.
 
-**Thermal:** the repo includes thermal simulation + optional surrogate scripts, but **thermal is not part of the main reproduction path** unless you add a thermal metrics export + comparison step.
+### C2 — Pareto-optimal vs straight fins (scoped)
 
-> Plotting: `analyze_flow_metrics.py` exports the CSV report and prints a console summary. If you want plots as part of the artifact (histograms/ECDFs/boxplots), add a small `plot_flow_metrics.py` script that reads `results/flow_metrics/flow_metrics.csv` and writes figures under `results/plots/`.
+- **Status:** VERIFIED_SCOPED
+- **Result:** Under Pareto rule (maximize flux, minimize density), the front contains 21 synthetic + 2 baseline points when baselines are scoped to `Fins_*` only (n=5).
+- **Caveat:** If all baselines are included (Grid_*, Random_*, n=12), the Pareto front becomes 0 synthetic + 7 baseline. The claim is only valid under explicit baseline scoping.
 
-### Data availability
+### Claim integrity rule
 
-**Real xylem images are not included** in this repository. Real-data comparisons require downloading the referenced dataset and placing it under `data/real_xylem/` (see §5.2).
+If a claim cannot be supported by `claim_audit/claim_map_v3.json`, it is UNVERIFIED and must not be stated publicly. See `CLAIMS.md` for the full registry.
+
+---
+
+## 7) Design manifold
+
+The generative model's parameter space is visualized in a 5×5 design manifold sweeping:
+- **X-axis:** Density (0.2 → 0.6)
+- **Y-axis:** Cooling rate (0.06 → 0.14)
+
+This manifold shows a smooth phase transition from diffuse, uniform porosity (low density, low cooling) to sharp cluster formation (high density, high cooling), demonstrating that the generative model produces physically meaningful variation across its parameter space.
+
+---
+
+## 8) Notes / limitations
+
+- This is an exploratory prototype, not a production system. Many scripts assume specific folder names under `data/` and `results/`.
+- The "real vs synthetic" comparisons in `physics_validation_report.csv` use programmatic engineering baselines, not biological tissue data.
+- The thermal pipeline is included but is not part of the main reproduction path.
+- C2's Pareto claim is sensitive to baseline scoping — this is documented transparently in the claim audit.
+
+---
+
+## 9) How to cite
+
+```bibtex
+@misc{thermalsponge2026,
+  title  = {Generative Porous Microstructure Design + Physics Validation},
+  author = {Daniel [LAST NAME]},
+  year   = {2026},
+  note   = {Artifact / research prototype},
+  url    = {https://github.com/ItsReallyDanii/Thermal-Sponge}
+}
+```
+
+---
+
+## 10) License
+
+[Add a license: MIT, Apache-2.0, or BSD-3-Clause are common for research code.]
+
+---
+
+## 11) Future directions
+
+- **Biological validation:** Obtain cellular-scale xylem micrograph data (SEM/confocal) and run the existing pipeline against real tissue measurements.
+- **3D extension:** Extend the 2D generative model to 3D porous structures for realistic thermal simulation.
+- **Physical fabrication:** Partner with a materials/manufacturing lab to 3D-print generated structures and measure actual thermal performance.
+- **Expanded baselines:** Add TPMS (triply periodic minimal surfaces) and topology-optimized baselines for stronger engineering comparisons.
+- **Application framing:** Evaluate generated structures specifically for datacenter cooling (heat sink replacement / thermal sponge concept).
