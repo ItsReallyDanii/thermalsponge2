@@ -1,4 +1,4 @@
-https://doi.org/10.5281/zenodo.18452198
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18452198.svg)](https://doi.org/10.5281/zenodo.18452198)
 # Generative Porous Microstructure Design + Physics Validation (Artifact)
 
 This repository contains an end-to-end research prototype for generating porous microstructure images and evaluating them against engineering baselines using morphology, flow, and thermal metrics.
