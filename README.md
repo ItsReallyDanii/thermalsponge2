@@ -59,6 +59,7 @@ This artifact's **main results** are:
 
 1. **Flow metrics comparison** (synthetic structures vs engineering baselines), exported to `results/physics_validation_report.csv`.
 2. **Thermal Pareto analysis** (synthetic structures vs straight-fin baselines), reproduced via `src/repro_claims.py`.
+3. **Claim audit verification** — one-command reproduction of all audited claims (C1, C2).
 
 **Flow (end-to-end):**
 
@@ -70,7 +71,7 @@ python flow_metrics_export.py
 python analyze_flow_metrics.py
 ```
 
-**Thermal (optional extension):**
+**Thermal (main result — Pareto analysis):**
 
 ```bash
 python heat_simulation.py
@@ -199,7 +200,7 @@ This manifold shows a smooth phase transition from diffuse, uniform porosity (lo
 
 - This is an exploratory prototype, not a production system. Many scripts assume specific folder names under `data/` and `results/`.
 - The "real vs synthetic" comparisons in `physics_validation_report.csv` use programmatic engineering baselines, not biological tissue data.
-- The thermal pipeline is included but is not part of the main reproduction path.
+- The thermal surrogate training is optional; the Pareto analysis (C2) uses direct simulation outputs.
 - C2's Pareto claim is sensitive to baseline scoping — this is documented transparently in the claim audit.
 
 ---
@@ -220,7 +221,7 @@ This manifold shows a smooth phase transition from diffuse, uniform porosity (lo
 
 ## 10) License
 
-[Add a license: MIT, Apache-2.0, or BSD-3-Clause are common for research code.]
+MIT
 
 ---
 
