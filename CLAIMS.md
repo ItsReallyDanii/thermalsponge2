@@ -32,9 +32,9 @@ This file defines what our public claims mean, and where the evidence lives.
 ## C3 — Control effort (kWh_ctrl)
 - Status: **NOT_SIGNIFICANT**
 - Public wording (safe): "Control effort (kWh_ctrl) is comparable between PID+Gate and PID-only under tested settings; no material increase observed."
-- No superiority claim is made. The paired test (ttest_rel, one-sided) returned p=0.86.
-- Test route: Shapiro-Wilk on paired diffs -> p >= 0.05 -> ttest_rel (one-sided, H1: gate < PID).
-- Effect size: gate_mean=11.06, pid_mean=11.03 (diff=+0.04, 0.3% increase, not material).
+- No superiority claim is made. The paired test (Wilcoxon signed-rank, one-sided) returned p=0.81.
+- Test route: n=8 < 20 -> Wilcoxon signed-rank mandatory (one-sided, H1: gate < PID).
+- Effect size: r_rb=0.958 (rank-biserial). gate_mean=11.06, pid_mean=11.03 (diff=+0.04, 0.3% increase, not material).
 - Reduction vs AlwaysOn: 97.2% (400.0 -> 11.06).
 - n_total=8, n_eff=8. Seeds: [1,4,6,7,8,10,11,13]. Analysis: trigger-qualified.
 - Metric tier: Must.
@@ -45,8 +45,8 @@ This file defines what our public claims mean, and where the evidence lives.
 - Public wording (safe): "PID+Gate reduces actuator chatter by ~50% vs PID-only (p=0.004, Wilcoxon signed-rank, one-sided, sim-only)."
 - Chatter definition: count of 0->1 transitions in binary gate signal u(t), threshold=0.5.
 - Test route: Wilcoxon signed-rank (count metric, always Wilcoxon). One-sided, H1: gate < PID.
-- p=0.0039, significant at alpha=0.05.
-- Effect size: gate_mean=50.2, pid_mean=100.1 (reduction=49.8%).
+- p=0.0039, significant at alpha=0.05. Effect size: r_rb=1.000 (rank-biserial).
+- gate_mean=50.2, pid_mean=100.1 (reduction=49.8%).
 - n_total=8, n_eff=8. Seeds: [1,4,6,7,8,10,11,13]. Analysis: trigger-qualified.
 - Metric tier: Nice.
 - Evidence: `claim_audit/claim_map_v4.json` -> claim `C4`
@@ -68,10 +68,12 @@ This file defines what our public claims mean, and where the evidence lives.
 
 For all paired comparisons (C3, C4, C5):
 1. Compute paired differences d_i = treatment_i - control_i (same seed, same morphology).
-2. Shapiro-Wilk on d_i: if p >= 0.05 (normal) -> `ttest_rel`; else -> `wilcoxon`.
-3. Count metrics (chatter_count) always use `wilcoxon`.
-4. alpha = 0.05, one-sided: H1: treatment < control (lower is better for effort/chatter).
-5. SLA compliance uses non-inferiority test with pre-registered margins from `hypothesis_config.json`.
+2. If n < 20: Wilcoxon signed-rank mandatory (t-test unreliable at small n).
+3. Count metrics (chatter_count) always use Wilcoxon signed-rank.
+4. Continuous metrics with n >= 20: Shapiro-Wilk on d_i — if p >= 0.05 -> `ttest_rel`; else -> `wilcoxon`.
+5. alpha = 0.05, one-sided: H1: treatment < control (lower is better for effort/chatter).
+6. Wilcoxon tests report rank-biserial effect size: r_rb = 1 - 2W/(n(n+1)).
+7. SLA compliance uses non-inferiority test with pre-registered margins from `hypothesis_config.json`.
 
 Pairing: same seed, same morphology (Xylem), different controller.
 

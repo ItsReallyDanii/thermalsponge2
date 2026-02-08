@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-02-08T05:26:54Z",
+  "generated_at_utc": "2026-02-08T05:34:48Z",
   "inputs_used": {
     "flow_metrics_csv": "claim_audit/flow_metrics.csv (fallback: results/flow_metrics/)",
     "flow_stiffness_candidates_csv": "claim_audit/flow_stiffness_candidates.csv (fallback: results/)",
@@ -55,12 +55,13 @@
           "control_mean": 11.02500006556511,
           "mean_diff": 0.03750002384185813,
           "direction": "treatment < control (lower is better)",
-          "shapiro_wilk_p": 0.32409715646480197,
-          "test": "ttest_rel",
-          "test_selection_reason": "Shapiro-Wilk p=0.3241 >= 0.05 (normal)",
-          "statistic": 1.157770609775218,
-          "p_value": 0.8575349079243988,
-          "significant": "False"
+          "test": "wilcoxon_signed_rank",
+          "test_selection_reason": "n=8 < 20 (wilcoxon mandatory)",
+          "statistic": 1.5,
+          "p_value": 0.8125,
+          "significant": "False",
+          "effect_size": 0.9583333333333334,
+          "effect_size_type": "rank_biserial"
         },
         "test_vs_always": {
           "metric": "kWh_ctrl (PID+Gate vs AlwaysOn)",
@@ -70,12 +71,13 @@
           "control_mean": 400.0,
           "mean_diff": -388.93749991059303,
           "direction": "treatment < control (lower is better)",
-          "shapiro_wilk_p": 0.671665802967127,
-          "test": "ttest_rel",
-          "test_selection_reason": "Shapiro-Wilk p=0.6717 >= 0.05 (normal)",
-          "statistic": -211.68905565803584,
-          "p_value": 6.928597382303517e-15,
-          "significant": "True"
+          "test": "wilcoxon_signed_rank",
+          "test_selection_reason": "n=8 < 20 (wilcoxon mandatory)",
+          "statistic": 0.0,
+          "p_value": 0.00390625,
+          "significant": "True",
+          "effect_size": 1.0,
+          "effect_size_type": "rank_biserial"
         },
         "n_total": 8,
         "n_eff": 8,
@@ -115,7 +117,9 @@
           "test_selection_reason": "count metric (always wilcoxon)",
           "statistic": 0.0,
           "p_value": 0.00390625,
-          "significant": "True"
+          "significant": "True",
+          "effect_size": 1.0,
+          "effect_size_type": "rank_biserial"
         },
         "n_total": 8,
         "n_eff": 8,
@@ -191,7 +195,8 @@
     }
   ],
   "statistical_test_rule": {
-    "rule": "For same-seed paired comparisons: Shapiro-Wilk on paired differences. If p >= 0.05 use ttest_rel (paired t-test), else Wilcoxon signed-rank. Count metrics always use Wilcoxon. alpha=0.05, one-sided: treatment < control for effort/chatter.",
+    "rule": "For same-seed paired comparisons: if n < 20, Wilcoxon signed-rank mandatory (t-test unreliable). Count metrics always Wilcoxon. Continuous with n >= 20: Shapiro-Wilk on diffs, p >= 0.05 -> ttest_rel, else Wilcoxon. alpha=0.05, one-sided: treatment < control. Wilcoxon reports rank-biserial effect size.",
+    "min_n_for_ttest": 20,
     "pairing": "same seed, same morphology (Xylem), different controller"
   },
   "metric_taxonomy": {
