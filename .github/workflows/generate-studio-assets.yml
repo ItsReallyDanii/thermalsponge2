@@ -1,29 +1,422 @@
-name: Generate Studio Assets
+#!/usr/bin/env python3
+"""
+generate_studio_assets.py
+Builds grounded documentation assets for BITO project Q/A in Studio tools.
 
-on:
-  workflow_dispatch:
-  push:
-    paths:
-      - "generate_studio_assets.py"
-      - "claim_audit/claim_map_v4.json"
-      - "CLAIMS.md"
-      - "README.md"
+Run from repo root:
+    python3 studio_assets/generate_studio_assets.py
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: python generate_studio_assets.py
-      - name: Commit changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add studio_assets
-          git diff --cached --quiet || git commit -m "Auto-generate studio assets"
-          git push
+Or from inside studio_assets/:
+    python3 generate_studio_assets.py
+"""
+
+import json
+import os
+import re
+import subprocess
+import time
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+
+# -----------------------------
+# Helpers
+# -----------------------------
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+
+
+def _write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def _load_json(path: Path) -> Dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _git(cmd: list[str], cwd: Path) -> Optional[str]:
+    try:
+        out = subprocess.check_output(cmd, cwd=str(cwd), stderr=subprocess.STDOUT)
+        return out.decode("utf-8", errors="replace").strip()
+    except Exception:
+        return None
+
+
+def _find_repo_root(start: Path) -> Path:
+    """
+    Find repo root by walking up until .git exists.
+    Fallback: current working directory.
+    """
+    cur = start.resolve()
+    for p in [cur, *cur.parents]:
+        if (p / ".git").exists():
+            return p
+    return Path.cwd().resolve()
+
+
+def _safe_num(x: Any) -> Optional[float]:
+    try:
+        return float(x)
+    except Exception:
+        return None
+
+
+def _extract_claim_metrics(claim_map: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """
+    Loosely normalize claim_map_v4.json regardless of exact key style.
+    """
+    out: Dict[str, Dict[str, Any]] = {"C3": {}, "C4": {}, "C5": {}}
+
+    # Common layouts:
+    # 1) {"claims": {"C3": {...}, ...}}
+    # 2) {"C3": {...}, "C4": {...}}
+    claims_obj = claim_map.get("claims")
+    if isinstance(claims_obj, dict):
+        src = claims_obj
+    else:
+        src = claim_map
+
+    for c in ("C3", "C4", "C5"):
+        cobj = src.get(c, {})
+        if not isinstance(cobj, dict):
+            cobj = {}
+
+        # normalized fields (best-effort)
+        out[c]["p_value"] = (
+            cobj.get("p_value")
+            if cobj.get("p_value") is not None
+            else cobj.get("p")
+            if cobj.get("p") is not None
+            else cobj.get("pval")
+        )
+
+        out[c]["effect_size"] = (
+            cobj.get("effect_size")
+            if cobj.get("effect_size") is not None
+            else cobj.get("r_rb")
+            if cobj.get("r_rb") is not None
+            else cobj.get("rank_biserial")
+        )
+
+        out[c]["route"] = (
+            cobj.get("test_route")
+            if cobj.get("test_route") is not None
+            else cobj.get("route")
+            if cobj.get("route") is not None
+            else cobj.get("test")
+        )
+
+        out[c]["status"] = (
+            cobj.get("status")
+            if cobj.get("status") is not None
+            else cobj.get("verdict")
+            if cobj.get("verdict") is not None
+            else cobj.get("result")
+        )
+
+        out[c]["raw"] = cobj
+
+    return out
+
+
+def _parse_neff_from_claim_map(claim_map: Dict[str, Any]) -> tuple[Optional[int], Optional[int], Optional[list[int]]]:
+    """
+    Try to extract n_total, n_eff, seeds from common key names.
+    """
+    candidates_total = ["n_total", "sample_n_total", "N_total", "total_n"]
+    candidates_eff = ["n_eff", "sample_n_eff", "N_eff", "effective_n"]
+    candidates_seeds = ["seeds", "seed_list", "paired_seeds", "analysis_seeds"]
+
+    n_total = None
+    n_eff = None
+    seeds = None
+
+    for k in candidates_total:
+        v = claim_map.get(k)
+        if isinstance(v, int):
+            n_total = v
+            break
+
+    for k in candidates_eff:
+        v = claim_map.get(k)
+        if isinstance(v, int):
+            n_eff = v
+            break
+
+    for k in candidates_seeds:
+        v = claim_map.get(k)
+        if isinstance(v, list):
+            try:
+                seeds = [int(x) for x in v]
+            except Exception:
+                seeds = v
+            break
+
+    # sometimes nested under meta/context
+    for nest_key in ("meta", "context", "analysis", "run_context"):
+        if n_total is not None and n_eff is not None and seeds is not None:
+            break
+        nest = claim_map.get(nest_key)
+        if isinstance(nest, dict):
+            if n_total is None:
+                for k in candidates_total:
+                    v = nest.get(k)
+                    if isinstance(v, int):
+                        n_total = v
+                        break
+            if n_eff is None:
+                for k in candidates_eff:
+                    v = nest.get(k)
+                    if isinstance(v, int):
+                        n_eff = v
+                        break
+            if seeds is None:
+                for k in candidates_seeds:
+                    v = nest.get(k)
+                    if isinstance(v, list):
+                        try:
+                            seeds = [int(x) for x in v]
+                        except Exception:
+                            seeds = v
+                        break
+
+    return n_total, n_eff, seeds
+
+
+def _format_val(v: Any, default: str = "N/A") -> str:
+    if v is None:
+        return default
+    if isinstance(v, float):
+        return f"{v:.4f}"
+    return str(v)
+
+
+# -----------------------------
+# Main generator
+# -----------------------------
+def generate_assets() -> None:
+    # Find repo root robustly whether script is run from root or studio_assets
+    script_dir = Path(__file__).resolve().parent
+    repo_root = _find_repo_root(script_dir)
+
+    # Output folder (kept at repo_root/studio_assets)
+    assets_dir = repo_root / "studio_assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+
+    # Paths
+    claim_map_path = repo_root / "claim_audit" / "claim_map_v4.json"
+    hypothesis_cfg_path = repo_root / "claim_audit" / "hypothesis_config.json"
+    experiment_cfg_path = repo_root / "claim_audit" / "experiment_config.json"
+    claims_md_path = repo_root / "CLAIMS.md"
+    readme_path = repo_root / "README.md"
+
+    # Load data
+    claim_map = _load_json(claim_map_path)
+    hypothesis_cfg = _load_json(hypothesis_cfg_path)
+    experiment_cfg = _load_json(experiment_cfg_path)
+    metrics = _extract_claim_metrics(claim_map)
+    n_total, n_eff, seeds = _parse_neff_from_claim_map(claim_map)
+
+    # Git metadata
+    commit_hash = _git(["git", "rev-parse", "--short", "HEAD"], repo_root) or "unknown"
+    branch = _git(["git", "rev-parse", "--abbrev-ref", "HEAD"], repo_root) or "unknown"
+    commit_time = _git(["git", "show", "-s", "--format=%ci", "HEAD"], repo_root) or "unknown"
+
+    # Heuristic summary values
+    c3_p = metrics["C3"].get("p_value")
+    c4_p = metrics["C4"].get("p_value")
+    c5_status = metrics["C5"].get("status")
+
+    c3_effect = metrics["C3"].get("effect_size")
+    c4_effect = metrics["C4"].get("effect_size")
+
+    # Delta extraction for non-inferiority
+    # Flexible because schema can vary
+    delta = None
+    for k in ("delta", "Δ", "non_inferiority_delta", "margin_delta"):
+        if k in hypothesis_cfg:
+            delta = hypothesis_cfg.get(k)
+            break
+    if delta is None:
+        for parent in ("C5", "sla", "non_inferiority"):
+            obj = hypothesis_cfg.get(parent)
+            if isinstance(obj, dict):
+                for k in ("delta", "Δ", "margin", "non_inferiority_delta"):
+                    if k in obj:
+                        delta = obj.get(k)
+                        break
+            if delta is not None:
+                break
+
+    # Build SOURCE_OF_TRUTH.md
+    sot = f"""# Project Source of Truth — BITO
+
+**Repository:** {repo_root.name}  
+**Commit Anchor:** `{commit_hash}`  
+**Branch:** `{branch}`  
+**Commit Time:** {commit_time}  
+**Status:** Verified simulation-only (bounded to tested envelopes)
+
+## Locked Scope
+- Bio-inspired thermal orchestration with a supervisory **temporal gate**.
+- Safety interlock: hard override (`T >= T_hard`) bypasses gating for immediate cooling response.
+- Statistical governance for small-sample paired analysis (n<20).
+
+## Evidence Snapshot
+- **C3 (kWh_ctrl parity / no material increase)**
+  - p-value: `{_format_val(c3_p)}`
+  - effect size: `{_format_val(c3_effect)}`
+  - route: `{_format_val(metrics["C3"].get("route"))}`
+  - status: `{_format_val(metrics["C3"].get("status"))}`
+
+- **C4 (chatter_count reduction)**
+  - p-value: `{_format_val(c4_p)}`
+  - effect size: `{_format_val(c4_effect)}`
+  - route: `{_format_val(metrics["C4"].get("route"))}`
+  - status: `{_format_val(metrics["C4"].get("status"))}`
+
+- **C5 (SLA non-inferiority vs Δ)**
+  - delta margin (Δ): `{_format_val(delta)}`
+  - route: `{_format_val(metrics["C5"].get("route"))}`
+  - status: `{_format_val(c5_status)}`
+
+## Sample Census
+- n_total: `{_format_val(n_total)}`
+- n_eff: `{_format_val(n_eff)}`
+- seeds: `{_format_val(seeds)}`
+
+## Source Files
+- `claim_audit/claim_map_v4.json`
+- `claim_audit/hypothesis_config.json`
+- `claim_audit/experiment_config.json`
+- `CLAIMS.md`
+- `README.md`
+"""
+    _write_text(assets_dir / "SOURCE_OF_TRUTH.md", sot)
+
+    # Build AUDIT_GOVERNANCE.md
+    gov = f"""# Audit Governance — BITO
+
+## Claim Boundaries
+- Results are **simulation-bounded** only.
+- Do not claim real-world lifespan extension unless hardware evidence exists.
+- Do not claim net energy savings unless explicitly measured beyond parity.
+
+## Statistical Policy (locked)
+1. Paired analysis with seed logging.
+2. For small samples (`n < 20`), non-parametric route is mandatory (Wilcoxon signed-rank).
+3. Alpha threshold: `0.05` (as configured in project docs/config).
+4. Effect size for non-parametric tests: rank-biserial (or project-specified equivalent).
+
+## Safety Policy
+- Hard override must supersede temporal gating whenever thermal hard limit is reached.
+
+## Non-Inferiority Policy
+- C5 judged against pre-registered margin Δ from:
+  - `claim_audit/hypothesis_config.json`
+  - detected Δ: `{_format_val(delta)}`
+
+## Traceability
+- Commit anchor: `{commit_hash}`
+- Core evidence file: `claim_audit/claim_map_v4.json`
+"""
+    _write_text(assets_dir / "AUDIT_GOVERNANCE.md", gov)
+
+    # Build PROMPT_LIBRARY.md
+    prompts = """# Prompt Library (Grounded, Audit-Safe)
+
+Use these with SOURCE_OF_TRUTH.md + AUDIT_GOVERNANCE.md loaded.
+
+## 1) Engineer Summary
+"Using SOURCE_OF_TRUTH.md only, summarize C3/C4/C5 outcomes with p-values, effect sizes, and route names. Do not add claims outside simulation scope."
+
+## 2) Governance Check
+"Using AUDIT_GOVERNANCE.md, validate whether this sentence is compliant: '<paste claim here>'. Return PASS/FAIL and exact reason."
+
+## 3) README Tightening
+"Rewrite the results section in a conservative, audit-safe tone bounded to simulation evidence and current commit anchor."
+
+## 4) Reviewer Q&A
+"Generate 10 likely reviewer questions for this project and answer each using only source-grounded evidence."
+
+## 5) Exec One-Pager
+"Create a one-page summary for operations leadership: problem, intervention, measured outcomes, and safety boundaries."
+"""
+    _write_text(assets_dir / "PROMPT_LIBRARY.md", prompts)
+
+    # Build GLOSSARY.md (you asked for variable clarity)
+    glossary = """# Glossary (Project Terms)
+
+- **BITO**: Bio-Inspired Thermal Orchestration supervisory policy.
+- **Temporal Gate (N-in-T)**: Event-count filter that authorizes actuator changes only when trend persistence is detected.
+- **T_hard**: Hard thermal threshold where safety override bypasses gate logic.
+- **kWh_ctrl**: Control effort/energy metric used for parity checks (C3).
+- **chatter_count**: Number of actuator switching events (proxy for mechanical fatigue) used in C4.
+- **SLA violations / excursions**: Thermal compliance failures used in C5.
+- **Δ (delta)**: Pre-registered non-inferiority margin.
+- **Wilcoxon Signed-Rank**: Non-parametric paired test used for small-sample inference.
+- **r_rb**: Rank-biserial effect size (non-parametric effect size).
+- **n_total / n_eff**: Total candidate runs vs effective paired runs used for final tests.
+"""
+    _write_text(assets_dir / "GLOSSARY.md", glossary)
+
+    # Build machine-readable manifest for tooling
+    manifest = {
+        "generated_at_epoch": int(time.time()),
+        "repo_root": str(repo_root),
+        "commit_hash": commit_hash,
+        "branch": branch,
+        "commit_time": commit_time,
+        "inputs": {
+            "claim_map_v4": str(claim_map_path),
+            "hypothesis_config": str(hypothesis_cfg_path),
+            "experiment_config": str(experiment_cfg_path),
+            "claims_md": str(claims_md_path),
+            "readme_md": str(readme_path),
+        },
+        "sample_census": {"n_total": n_total, "n_eff": n_eff, "seeds": seeds},
+        "claims": {
+            "C3": {
+                "p_value": c3_p,
+                "effect_size": c3_effect,
+                "route": metrics["C3"].get("route"),
+                "status": metrics["C3"].get("status"),
+            },
+            "C4": {
+                "p_value": c4_p,
+                "effect_size": c4_effect,
+                "route": metrics["C4"].get("route"),
+                "status": metrics["C4"].get("status"),
+            },
+            "C5": {
+                "delta": delta,
+                "route": metrics["C5"].get("route"),
+                "status": c5_status,
+            },
+        },
+        "outputs": [
+            "studio_assets/SOURCE_OF_TRUTH.md",
+            "studio_assets/AUDIT_GOVERNANCE.md",
+            "studio_assets/PROMPT_LIBRARY.md",
+            "studio_assets/GLOSSARY.md",
+            "studio_assets/manifest.json",
+        ],
+    }
+    _write_text(assets_dir / "manifest.json", json.dumps(manifest, indent=2))
+
+    print("✅ Studio assets generated")
+    print(f"Repo root: {repo_root}")
+    print(f"Output dir: {assets_dir}")
+    for f in manifest["outputs"]:
+        print(f" - {f}")
+
+
+if __name__ == "__main__":
+    generate_assets()
