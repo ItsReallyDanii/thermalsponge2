@@ -1,0 +1,210 @@
+{
+  "generated_at_utc": "2026-02-08T05:26:54Z",
+  "inputs_used": {
+    "flow_metrics_csv": "claim_audit/flow_metrics.csv (fallback: results/flow_metrics/)",
+    "flow_stiffness_candidates_csv": "claim_audit/flow_stiffness_candidates.csv (fallback: results/)",
+    "thermal_metrics_csv": "claim_audit/thermal_metrics.csv (fallback: results/thermal_metrics/)",
+    "baseline_metrics_csv": "claim_audit/baseline_metrics.csv (fallback: results/baselines/)",
+    "orchestration_metrics_csv": "claim_audit/orchestration_metrics.csv",
+    "experiment_config_json": "claim_audit/experiment_config.json",
+    "hypothesis_config_json": "claim_audit/hypothesis_config.json",
+    "repro_script": "src/repro_claims_v4.py"
+  },
+  "claims": [
+    {
+      "id": "C1",
+      "label": "~2.8-2.9x stiffness_potential (proxy)",
+      "status": "VERIFIED_PROXY",
+      "computed_claim_check": {
+        "best_synthetic_stiffness_potential": 0.9078656174242496,
+        "real_mean_stiffness_potential": 0.3291847807820886,
+        "real_median_stiffness_potential": 0.31166180002037436,
+        "ratio_best_over_real_mean": 2.7579209927849977,
+        "ratio_best_over_real_median": 2.9129832958832282
+      }
+    },
+    {
+      "id": "C2",
+      "label": "Pareto-optimal vs Straight Fins (Fins_* only, scoped)",
+      "status": "VERIFIED_SCOPED",
+      "computed_claim_check": {
+        "pareto_front_counts_vs_fins_scope": {
+          "synthetic": 21,
+          "baseline": 2
+        },
+        "baseline_scope": "name.startswith('Fins_')",
+        "n_baselines_in_scope": 5
+      }
+    },
+    {
+      "id": "C3",
+      "label": "Control effort comparable under gated vs PID-only cooling",
+      "status": "NOT_SIGNIFICANT",
+      "verdict": "kWh_ctrl comparable / no material increase under tested settings",
+      "metric_tier": "Must",
+      "computed_claim_check": {
+        "gate_mean_kWh_ctrl": 11.062500089406967,
+        "pid_mean_kWh_ctrl": 11.02500006556511,
+        "always_mean_kWh_ctrl": 400.0,
+        "reduction_vs_always_pct": 97.23437497764826,
+        "test_vs_pid": {
+          "metric": "kWh_ctrl (PID+Gate vs PID)",
+          "n": 8,
+          "alpha": 0.05,
+          "treatment_mean": 11.062500089406967,
+          "control_mean": 11.02500006556511,
+          "mean_diff": 0.03750002384185813,
+          "direction": "treatment < control (lower is better)",
+          "shapiro_wilk_p": 0.32409715646480197,
+          "test": "ttest_rel",
+          "test_selection_reason": "Shapiro-Wilk p=0.3241 >= 0.05 (normal)",
+          "statistic": 1.157770609775218,
+          "p_value": 0.8575349079243988,
+          "significant": "False"
+        },
+        "test_vs_always": {
+          "metric": "kWh_ctrl (PID+Gate vs AlwaysOn)",
+          "n": 8,
+          "alpha": 0.05,
+          "treatment_mean": 11.062500089406967,
+          "control_mean": 400.0,
+          "mean_diff": -388.93749991059303,
+          "direction": "treatment < control (lower is better)",
+          "shapiro_wilk_p": 0.671665802967127,
+          "test": "ttest_rel",
+          "test_selection_reason": "Shapiro-Wilk p=0.6717 >= 0.05 (normal)",
+          "statistic": -211.68905565803584,
+          "p_value": 6.928597382303517e-15,
+          "significant": "True"
+        },
+        "n_total": 8,
+        "n_eff": 8,
+        "seeds_used": [
+          1,
+          4,
+          6,
+          7,
+          8,
+          10,
+          11,
+          13
+        ],
+        "excluded_seeds": [],
+        "exclusion_reason": "none (all seeds included per pre-registration)"
+      },
+      "analysis_label": "trigger-qualified analysis"
+    },
+    {
+      "id": "C4",
+      "label": "Reduced actuator chatter via refractory gating",
+      "status": "VERIFIED_SIM_ONLY",
+      "metric_tier": "Nice",
+      "computed_claim_check": {
+        "gate_mean_chatter": 50.25,
+        "pid_mean_chatter": 100.125,
+        "reduction_pct": 49.812734082397,
+        "test": {
+          "metric": "chatter_count (PID+Gate vs PID)",
+          "n": 8,
+          "alpha": 0.05,
+          "treatment_mean": 50.25,
+          "control_mean": 100.125,
+          "mean_diff": -49.875,
+          "direction": "treatment < control (lower is better)",
+          "test": "wilcoxon_signed_rank",
+          "test_selection_reason": "count metric (always wilcoxon)",
+          "statistic": 0.0,
+          "p_value": 0.00390625,
+          "significant": "True"
+        },
+        "n_total": 8,
+        "n_eff": 8,
+        "seeds_used": [
+          1,
+          4,
+          6,
+          7,
+          8,
+          10,
+          11,
+          13
+        ],
+        "excluded_seeds": [],
+        "exclusion_reason": "none (all seeds included per pre-registration)"
+      },
+      "chatter_definition": "count of 0->1 transitions in binary gate signal u(t), threshold=0.5",
+      "analysis_label": "trigger-qualified analysis"
+    },
+    {
+      "id": "C5",
+      "label": "Thermal SLA non-inferiority under gated control",
+      "status": "VERIFIED_SIM_ONLY",
+      "metric_tier": "Must",
+      "non_inferiority_test": {
+        "Delta_sla_violations": 0.1,
+        "violations_bound": 14560.7,
+        "gate_total_sla_violations": 12589,
+        "pid_total_sla_violations": 13237,
+        "violations_pass": true,
+        "Delta_max_exceedance": 0.02,
+        "exceedance_bound": 0.07152028799057,
+        "gate_max_exceedance": 0.0615995526313781,
+        "pid_max_exceedance": 0.05152028799057,
+        "exceedance_pass": true,
+        "non_inferior": true,
+        "source": "claim_audit/hypothesis_config.json"
+      },
+      "computed_claim_check": {
+        "always_total_sla_violations": 0,
+        "T_SLA": 0.85,
+        "n_total": 8,
+        "n_eff": 8,
+        "seeds_used": [
+          1,
+          4,
+          6,
+          7,
+          8,
+          10,
+          11,
+          13
+        ],
+        "excluded_seeds": [],
+        "exclusion_reason": "none (all seeds included per pre-registration)"
+      },
+      "morphology_band": {
+        "seed_porosities": {
+          "1": 0.532073974609375,
+          "4": 0.4257659912109375,
+          "6": 0.4046630859375,
+          "7": 0.489990234375,
+          "8": 0.458160400390625,
+          "10": 0.489288330078125,
+          "11": 0.546295166015625,
+          "13": 0.406280517578125
+        },
+        "porosity_min": 0.4046630859375,
+        "porosity_max": 0.546295166015625,
+        "porosity_mean": 0.46906471252441406
+      },
+      "analysis_label": "trigger-qualified analysis"
+    }
+  ],
+  "statistical_test_rule": {
+    "rule": "For same-seed paired comparisons: Shapiro-Wilk on paired differences. If p >= 0.05 use ttest_rel (paired t-test), else Wilcoxon signed-rank. Count metrics always use Wilcoxon. alpha=0.05, one-sided: treatment < control for effort/chatter.",
+    "pairing": "same seed, same morphology (Xylem), different controller"
+  },
+  "metric_taxonomy": {
+    "must": [
+      "kWh_ctrl",
+      "sla_violations",
+      "sla_max_exceedance"
+    ],
+    "nice": [
+      "chatter_count"
+    ],
+    "exploratory": [
+      "bio_proxy_trend"
+    ]
+  }
+}

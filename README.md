@@ -60,6 +60,7 @@ This artifact's **main results** are:
 1. **Flow metrics comparison** (synthetic structures vs engineering baselines), exported to `results/physics_validation_report.csv`.
 2. **Thermal Pareto analysis** (synthetic structures vs straight-fin baselines), reproduced via `src/repro_claims.py`.
 3. **Claim audit verification** — one-command reproduction of all audited claims (C1, C2).
+4. **Bio-thermal orchestration** (C3-C5) — transient heat simulation with PID/gated controllers, comparing control effort, actuator chatter, and SLA compliance across morphologies.
 
 **Flow (end-to-end):**
 
@@ -85,6 +86,16 @@ python src/repro_claims.py
 ```
 
 This reproduces the C1/C2 numeric checks from `claim_audit/*.csv` and regenerates `claim_audit/claim_map_v3.json`.
+
+**Bio-thermal orchestration (C3-C5):**
+
+```bash
+# Run transient experiments (generates orchestration_metrics.csv, sla_check.csv)
+python -m src.run_thermal_orchestration
+
+# Reproduce all claims C1-C5 (generates claim_map_v4.json)
+python src/repro_claims_v4.py
+```
 
 ---
 
@@ -180,9 +191,26 @@ This repository includes a self-contained claim audit system under `claim_audit/
 - **Result:** Under Pareto rule (maximize flux, minimize density), the front contains 21 synthetic + 2 baseline points when baselines are scoped to `Fins_*` only (n=5).
 - **Caveat:** If all baselines are included (Grid_*, Random_*, n=12), the Pareto front becomes 0 synthetic + 7 baseline. The claim is only valid under explicit baseline scoping.
 
+### C3 — Control effort comparable (kWh_ctrl)
+
+- **Status:** NOT_SIGNIFICANT
+- **Result:** PID+Gate kWh_ctrl is comparable to PID-only (gate=11.06, PID=11.03, p=0.86 ttest_rel). No superiority claim.
+- **Context:** Both PID+Gate and PID-only reduce effort by ~97% vs AlwaysOn (400.0).
+
+### C4 — Actuator chatter reduction
+
+- **Status:** VERIFIED_SIM_ONLY
+- **Result:** PID+Gate reduces chatter by ~50% vs PID-only (50.2 vs 100.1, p=0.004 Wilcoxon, sim-only).
+- **Chatter definition:** count of 0->1 transitions in binary gate signal u(t).
+
+### C5 — Thermal SLA non-inferiority
+
+- **Status:** VERIFIED_SIM_ONLY
+- **Result:** PID+Gate is non-inferior to PID-only within pre-registered margins (Delta_violations=10%, Delta_exceedance=0.02). Both criteria pass.
+
 ### Claim integrity rule
 
-If a claim cannot be supported by `claim_audit/claim_map_v3.json`, it is UNVERIFIED and must not be stated publicly. See `CLAIMS.md` for the full registry.
+If a claim cannot be supported by `claim_audit/claim_map_v4.json`, it is UNVERIFIED and must not be stated publicly. See `CLAIMS.md` for the full registry.
 
 ---
 
