@@ -1,0 +1,36 @@
+{
+  "version": "v4",
+  "pre_registered_at": "2026-02-08",
+  "hypotheses": {
+    "C3": {
+      "label": "Control effort (kWh_ctrl): PID+Gate vs PID-only",
+      "H0": "kWh_ctrl(PID+Gate) >= kWh_ctrl(PID)",
+      "H1": "kWh_ctrl(PID+Gate) < kWh_ctrl(PID)",
+      "direction": "one-sided (lower is better)",
+      "test_rule": "Shapiro-Wilk on paired diffs: if p >= 0.05 ttest_rel, else Wilcoxon. alpha=0.05.",
+      "metric_tier": "Must"
+    },
+    "C4": {
+      "label": "Actuator chatter: PID+Gate vs PID-only",
+      "H0": "chatter(PID+Gate) >= chatter(PID)",
+      "H1": "chatter(PID+Gate) < chatter(PID)",
+      "direction": "one-sided (lower is better)",
+      "test_rule": "Wilcoxon signed-rank (count metric). alpha=0.05.",
+      "metric_tier": "Nice"
+    },
+    "C5": {
+      "label": "SLA non-inferiority: PID+Gate vs PID-only",
+      "type": "non-inferiority",
+      "H0": "sla_violations(PID+Gate) > sla_violations(PID) + Delta",
+      "H1": "sla_violations(PID+Gate) <= sla_violations(PID) + Delta",
+      "Delta_sla_violations": 0.10,
+      "Delta_sla_violations_note": "Gate may have at most 10% more total SLA violations than PID (fraction of PID total). Non-inferiority passes if gate_total <= pid_total * (1 + Delta).",
+      "Delta_max_exceedance": 0.02,
+      "Delta_max_exceedance_note": "Gate max exceedance may exceed PID max exceedance by at most 0.02 (absolute). Non-inferiority passes if gate_max_exc <= pid_max_exc + Delta.",
+      "metric_tier": "Must"
+    }
+  },
+  "pairing": "same seed, same morphology (Xylem), different controller",
+  "seeds": [1, 4, 6, 7, 8, 10, 11, 13],
+  "seed_qualification": "trigger-qualified: T_max(q=0.005, gate=off) > T_SLA for Xylem morphology"
+}

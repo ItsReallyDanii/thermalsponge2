@@ -1,0 +1,57 @@
+{
+  "seeds": [
+    1,
+    4,
+    6,
+    7,
+    8,
+    10,
+    11,
+    13
+  ],
+  "pid": {
+    "Kp": 8.0,
+    "Ki": 0.3,
+    "Kd": 2.0
+  },
+  "gate": {
+    "N_trigger": 3,
+    "T_window": 50,
+    "T_refractory": 20
+  },
+  "simulation": {
+    "dt": 0.1,
+    "n_steps": 4000,
+    "q_chip": 0.005,
+    "T_SLA": 0.85
+  },
+  "morphologies": [
+    "Fins_20",
+    "Random_0.4",
+    "Xylem"
+  ],
+  "controllers": [
+    "PID",
+    "PID+Gate",
+    "AlwaysOn"
+  ],
+  "total_runs": 40,
+  "metric_taxonomy": {
+    "must": [
+      "kWh_ctrl",
+      "sla_violations",
+      "sla_max_exceedance"
+    ],
+    "nice": [
+      "chatter_count"
+    ],
+    "exploratory": [
+      "bio_proxy_trend"
+    ]
+  },
+  "gate_output_contract": "binary 0/1; chatter = count of 0->1 transitions at threshold 0.5",
+  "statistical_tests": {
+    "rule": "Shapiro-Wilk on paired differences: if p >= 0.05 use ttest_rel, else wilcoxon. Count metrics always wilcoxon. alpha=0.05, one-sided.",
+    "pairing": "same seed, same morphology, different controller"
+  }
+}
