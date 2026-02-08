@@ -1,0 +1,7 @@
+{
+  "kWh_ctrl": "Control effort proxy (cumulative energy)",
+  "chatter_count": "Actuator state transition frequency (0->1 in binary gate)",
+  "Delta": "SLA non-inferiority margin",
+  "T_SLA": "Thermal SLA threshold used in orchestration",
+  "gate_output_contract": "Binary gate signal u in {0, 1}"
+}
