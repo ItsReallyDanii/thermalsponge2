@@ -194,7 +194,7 @@ This repository includes a self-contained claim audit system under `claim_audit/
 ### C3 — Control effort comparable (kWh_ctrl)
 
 - **Status:** NOT_SIGNIFICANT
-- **Result:** PID+Gate kWh_ctrl is comparable to PID-only (gate=11.06, PID=11.03, p=0.86 ttest_rel). No superiority claim.
+- **Result:** PID+Gate kWh_ctrl is comparable to PID-only (gate=11.06, PID=11.03, p=0.81 Wilcoxon, r_rb=0.958). No superiority claim.
 - **Context:** Both PID+Gate and PID-only reduce effort by ~97% vs AlwaysOn (400.0).
 
 ### C4 — Actuator chatter reduction

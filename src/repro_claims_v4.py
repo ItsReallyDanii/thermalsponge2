@@ -9,11 +9,13 @@ C1/C2 logic is duplicated (not imported) to avoid coupling with existing script.
 Statistical test selection rule (documented identically in CLAIMS.md):
     For same-seed paired comparisons:
         1. Compute paired differences d_i = treatment_i - control_i.
-        2. Shapiro-Wilk on d_i: if p >= 0.05 (normal), use scipy.stats.ttest_rel.
-        3. If Shapiro-Wilk p < 0.05 (non-normal), use scipy.stats.wilcoxon.
-        4. Count metrics (chatter_count) always use wilcoxon.
+        2. If n < 20: Wilcoxon signed-rank mandatory (t-test unreliable at small n).
+        3. Count metrics (chatter_count) always use Wilcoxon signed-rank.
+        4. Continuous metrics with n >= 20: Shapiro-Wilk on d_i:
+           if p >= 0.05 (normal) -> ttest_rel; else -> Wilcoxon signed-rank.
         5. alpha = 0.05, one-sided: treatment < control for effort/chatter.
-        6. SLA compliance uses exact count (zero-violation threshold or comparison).
+        6. Wilcoxon tests report rank-biserial effect size.
+        7. SLA compliance uses non-inferiority test with pre-registered Delta.
 
 Metric taxonomy (locked, matches everywhere):
     Must:        kWh_ctrl, sla_violations, sla_max_exceedance
@@ -184,6 +186,19 @@ def repro_c2(audit_dir: Path, repo_root: Path) -> dict | None:
 # Paired statistical testing
 # ---------------------------------------------------------------
 
+def _rank_biserial(W: float, n: int) -> float:
+    """Rank-biserial correlation for Wilcoxon signed-rank: r_rb = 1 - (2W)/(n(n+1))."""
+    denom = n * (n + 1)
+    if denom == 0:
+        return float("nan")
+    return 1.0 - (2.0 * W) / denom
+
+
+# Minimum sample size for Shapiro-Wilk → ttest_rel path.
+# Below this threshold, Wilcoxon signed-rank is mandatory regardless of normality.
+_MIN_N_FOR_TTEST = 20
+
+
 def run_paired_test(
     treatment: np.ndarray,
     control: np.ndarray,
@@ -194,12 +209,14 @@ def run_paired_test(
     """Run appropriate paired test per the documented selection rule.
 
     Rule:
+        - n < 20 → Wilcoxon signed-rank (mandatory; t-test unreliable).
         - Count metrics → always Wilcoxon signed-rank.
-        - Continuous metrics → Shapiro-Wilk on paired diffs:
+        - Continuous metrics with n >= 20 → Shapiro-Wilk on paired diffs:
             if p >= 0.05: ttest_rel (paired t-test)
             else: Wilcoxon signed-rank
         - All tests one-sided: H_a: treatment < control (lower is better).
         - alpha = 0.05.
+        - Wilcoxon tests report rank-biserial effect size.
     """
     n = len(treatment)
     assert len(control) == n
@@ -222,24 +239,30 @@ def run_paired_test(
             "statistic": float("nan"),
             "p_value": float("nan"),
             "significant": False,
+            "effect_size": float("nan"),
             "note": f"All paired differences identical ({diffs[0]:.6f}); no test possible.",
         })
         return result
 
-    if is_count:
-        # Count metrics → Wilcoxon
+    # Determine whether Wilcoxon is forced
+    force_wilcoxon = is_count or n < _MIN_N_FOR_TTEST
+
+    if force_wilcoxon:
+        reason = "count metric (always wilcoxon)" if is_count else f"n={n} < {_MIN_N_FOR_TTEST} (wilcoxon mandatory)"
         stat, p_two = wilcoxon(diffs, alternative="two-sided")
-        # One-sided: treatment < control → diffs should be negative
         p_one = p_two / 2 if diffs.mean() < 0 else 1.0 - p_two / 2
+        r_rb = _rank_biserial(float(stat), n)
         result.update({
             "test": "wilcoxon_signed_rank",
-            "test_selection_reason": "count metric (always wilcoxon)",
+            "test_selection_reason": reason,
             "statistic": float(stat),
             "p_value": float(p_one),
             "significant": p_one < alpha,
+            "effect_size": r_rb,
+            "effect_size_type": "rank_biserial",
         })
     else:
-        # Continuous: Shapiro-Wilk on diffs
+        # n >= 20, continuous: Shapiro-Wilk on diffs
         sw_stat, sw_p = shapiro(diffs)
         result["shapiro_wilk_p"] = float(sw_p)
 
@@ -247,23 +270,31 @@ def run_paired_test(
             # Normal → paired t-test (one-sided: treatment < control)
             stat, p_two = ttest_rel(treatment, control)
             p_one = p_two / 2 if diffs.mean() < 0 else 1.0 - p_two / 2
+            # Cohen's d for paired t-test
+            d_std = diffs.std(ddof=1)
+            cohens_d = float(diffs.mean() / d_std) if d_std > 0 else float("nan")
             result.update({
                 "test": "ttest_rel",
-                "test_selection_reason": f"Shapiro-Wilk p={sw_p:.4f} >= 0.05 (normal)",
+                "test_selection_reason": f"n={n} >= {_MIN_N_FOR_TTEST}, Shapiro-Wilk p={sw_p:.4f} >= 0.05 (normal)",
                 "statistic": float(stat),
                 "p_value": float(p_one),
                 "significant": p_one < alpha,
+                "effect_size": cohens_d,
+                "effect_size_type": "cohens_d_paired",
             })
         else:
             # Non-normal → Wilcoxon
             stat, p_two = wilcoxon(diffs, alternative="two-sided")
             p_one = p_two / 2 if diffs.mean() < 0 else 1.0 - p_two / 2
+            r_rb = _rank_biserial(float(stat), n)
             result.update({
                 "test": "wilcoxon_signed_rank",
-                "test_selection_reason": f"Shapiro-Wilk p={sw_p:.4f} < 0.05 (non-normal)",
+                "test_selection_reason": f"n={n} >= {_MIN_N_FOR_TTEST}, Shapiro-Wilk p={sw_p:.4f} < 0.05 (non-normal)",
                 "statistic": float(stat),
                 "p_value": float(p_one),
                 "significant": p_one < alpha,
+                "effect_size": r_rb,
+                "effect_size_type": "rank_biserial",
             })
 
     return result
@@ -553,11 +584,13 @@ def main() -> int:
         "claims": [c for c in [c1, c2, c3, c4, c5] if c is not None],
         "statistical_test_rule": {
             "rule": (
-                "For same-seed paired comparisons: Shapiro-Wilk on paired differences. "
-                "If p >= 0.05 use ttest_rel (paired t-test), else Wilcoxon signed-rank. "
-                "Count metrics always use Wilcoxon. alpha=0.05, one-sided: "
-                "treatment < control for effort/chatter."
+                "For same-seed paired comparisons: if n < 20, Wilcoxon signed-rank "
+                "mandatory (t-test unreliable). Count metrics always Wilcoxon. "
+                "Continuous with n >= 20: Shapiro-Wilk on diffs, p >= 0.05 -> ttest_rel, "
+                "else Wilcoxon. alpha=0.05, one-sided: treatment < control. "
+                "Wilcoxon reports rank-biserial effect size."
             ),
+            "min_n_for_ttest": 20,
             "pairing": "same seed, same morphology (Xylem), different controller",
         },
         "metric_taxonomy": {
